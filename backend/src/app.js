@@ -4,6 +4,7 @@ const helmet = require('helmet');
 require('dotenv').config();
 
 const problemRoutes = require('./routes/problemRoutes');
+const codeRoutes = require('./routes/codeRoutes');
 const validate = require('./middleware/validate');
 
 const app = express();
@@ -15,6 +16,7 @@ app.use(express.json()); // Parse JSON bodies
 
 // Routes
 app.use('/api/problems', validate, problemRoutes);
+app.use('/api', validate, codeRoutes); // Code execution routes
 
 // Error handling middleware
 app.use((err, req, res, next) => {

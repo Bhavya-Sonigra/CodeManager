@@ -155,4 +155,40 @@ export const problemService = {
       return { data: null, error };
     }
   },
+
+  // Execute code with sample input
+  async executeCode(code, language, input) {
+    try {
+      const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.EXECUTE_CODE}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ code, language, input }),
+      });
+      const data = await handleResponse(response);
+      return { data, error: null };
+    } catch (error) {
+      console.error('Error executing code:', error.message);
+      return { data: null, error };
+    }
+  },
+
+  // Submit solution for evaluation
+  async submitSolution(problemId, code, language) {
+    try {
+      const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.SUBMIT_SOLUTION}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ problemId, code, language }),
+      });
+      const data = await handleResponse(response);
+      return { data, error: null };
+    } catch (error) {
+      console.error('Error submitting solution:', error.message);
+      return { data: null, error };
+    }
+  },
 };

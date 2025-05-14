@@ -39,18 +39,16 @@ const ProblemList = () => {
   };
 
   const handleDelete = async (id) => {
-    if (window.confirm('Are you sure you want to delete this problem?')) {
-      try {
-        const { error } = await problemService.deleteProblem(id);
-        if (error) {
-          setError(error.message || 'Failed to delete problem');
-          return;
-        }
-        setProblems(problems.filter(p => p.id !== id));
-      } catch (error) {
-        console.error('Error deleting problem:', error);
-        setError('Failed to delete problem');
+    try {
+      const { error } = await problemService.deleteProblem(id);
+      if (error) {
+        setError(error.message || 'Failed to delete problem');
+        return;
       }
+      setProblems(problems.filter(p => p.id !== id));
+    } catch (error) {
+      console.error('Error deleting problem:', error);
+      setError('Failed to delete problem');
     }
   };
 
@@ -113,17 +111,37 @@ const ProblemList = () => {
             <p className="description">{problem.description}</p>
             <div className="card-actions">
               <div className="action-links">
-                <Link to={`/edit/${problem.id}`} className="edit-link">
+                <button 
+                  type="button"
+                  className="edit-link"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    const editUrl = `/edit/${problem.id}`;
+                    window.location.href = editUrl;
+                  }}
+                >
                   Edit
-                </Link>
+                </button>
                 <button
-                  onClick={() => handleDelete(problem.id)}
+                  type="button"
                   className="delete-link"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    if (window.confirm('Are you sure you want to delete this problem?')) {
+                      handleDelete(problem.id);
+                    }
+                  }}
                 >
                   Delete
                 </button>
               </div>
-              <Link to={`/problem/${problem.id}`} className="solve-btn">
+              <Link 
+                to={`/solve/${problem.id}`} 
+                className="solve-btn"
+                onClick={(e) => e.stopPropagation()}
+              >
                 Solve Problem
               </Link>
             </div>

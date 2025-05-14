@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { problemService } from '../services/problemService';
+import { FiAlertCircle, FiPlus, FiTrash2, FiCheckCircle } from 'react-icons/fi';
 import './AddProblem.css';
 
 const AddProblem = () => {
@@ -19,6 +20,7 @@ const AddProblem = () => {
   ]);
 
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
@@ -98,7 +100,10 @@ const AddProblem = () => {
         return;
       }
 
-      navigate('/');
+      setSuccess('Problem saved successfully!');
+      setTimeout(() => {
+        navigate('/');
+      }, 1500);
     } catch (error) {
       setError(error.message || 'An unexpected error occurred');
     } finally {
@@ -141,7 +146,18 @@ const AddProblem = () => {
       <h1>{isEditMode ? 'Edit Problem' : 'Create New Problem'}</h1>
       
       <form onSubmit={handleSubmit} className="problem-form">
-        {error && <div className="error-message">{error}</div>}
+        {error && (
+          <div className="error-message">
+            <FiAlertCircle size={20} />
+            {error}
+          </div>
+        )}
+        {success && (
+          <div className="success-message">
+            <FiCheckCircle size={20} />
+            {success}
+          </div>
+        )}
 
         <fieldset disabled={isSubmitting}>
           <div className="form-section">
@@ -260,20 +276,22 @@ const AddProblem = () => {
                     onClick={() => removeTestcase(index)}
                     className="remove-testcase-button"
                   >
+                    <FiTrash2 size={18} />
                     Remove Test Case
                   </button>
                 )}
               </div>
             ))}
-
-            <button
-              type="button"
-              onClick={addTestcase}
-              className="add-testcase-button"
-            >
-              Add Test Case
-            </button>
           </div>
+
+          <button
+            type="button"
+            onClick={addTestcase}
+            className="add-testcase-button"
+          >
+            <FiPlus size={18} />
+            Add Test Case
+          </button>
 
           <button type="submit" className="submit-button" disabled={isSubmitting}>
             {isSubmitting ? 'Saving...' : isEditMode ? 'Update Problem' : 'Create Problem'}

@@ -1,0 +1,154 @@
+.edit-problem-container {
+  max-width: 800px;
+  margin: 2rem auto;
+  padding: 2rem;
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.edit-problem-container h1 {
+  margin-bottom: 2rem;
+  color: #333;
+}
+
+.edit-problem-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.form-group label {
+  font-weight: 600;
+  color: #444;
+}
+
+.form-group input,
+.form-group textarea,
+.form-group select {
+  padding: 0.75rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 1rem;
+}
+
+.form-group textarea {
+  min-height: 100px;
+  resize: vertical;
+}
+
+.test-cases-section {
+  border-top: 1px solid #eee;
+  padding-top: 1.5rem;
+  margin-top: 1.5rem;
+}
+
+.test-cases-section h3 {
+  margin-bottom: 1rem;
+  color: #444;
+}
+
+.test-case {
+  background: #f8f9fa;
+  padding: 1.5rem;
+  border-radius: 6px;
+  margin-bottom: 1rem;
+  position: relative;
+}
+
+.test-case-inputs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+.test-case textarea {
+  min-height: 80px;
+}
+
+.add-test-case-btn {
+  background: #28a745;
+  color: white;
+  padding: 0.75rem 1.5rem;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 600;
+  margin-top: 1rem;
+}
+
+.add-test-case-btn:hover {
+  background: #218838;
+}
+
+.remove-test-case-btn {
+  background: #dc3545;
+  color: white;
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+}
+
+.remove-test-case-btn:hover {
+  background: #c82333;
+}
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 1rem;
+  margin-top: 2rem;
+}
+
+.cancel-btn,
+.save-btn {
+  padding: 0.75rem 2rem;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.cancel-btn {
+  background: #6c757d;
+  color: white;
+}
+
+.cancel-btn:hover {
+  background: #5a6268;
+}
+
+.save-btn {
+  background: #007bff;
+  color: white;
+}
+
+.save-btn:hover {
+  background: #0056b3;
+}
+
+.loading {
+  text-align: center;
+  padding: 2rem;
+  font-size: 1.2rem;
+  color: #666;
+}
+
+.error {
+  color: #dc3545;
+  padding: 1rem;
+  background: #f8d7da;
+  border: 1px solid #f5c6cb;
+  border-radius: 4px;
+  margin-bottom: 1rem;
+}
