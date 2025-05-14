@@ -1,10 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { problemService } from '../services/problemService';
 import './ProblemList.css';
 
 const ProblemList = () => {
+  const navigate = useNavigate();
   const [problems, setProblems] = useState([]);
+  useEffect(() => {
+    if (!Array.isArray(problems)) {
+      setProblems([]);
+    }
+  }, [problems]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all'); // all, easy, medium, hard
   const [sortBy, setSortBy] = useState('newest'); // newest, points
@@ -18,7 +24,11 @@ const ProblemList = () => {
           setError(error.message || 'Failed to load problems');
           return;
         }
-        setProblems(data);
+        if (data?.data && Array.isArray(data.data)) {
+          setProblems(data.data);
+        } else {
+          setError('Invalid data format received from server');
+        }
       } catch (error) {
         console.error('Error fetching problems:', error);
         setError('Failed to load problems');
@@ -53,6 +63,10 @@ const ProblemList = () => {
   };
 
   const filteredAndSortedProblems = () => {
+    if (!Array.isArray(problems)) {
+      return [];
+    }
+
     let result = [...problems];
 
     // Apply filter
@@ -63,10 +77,10 @@ const ProblemList = () => {
     // Apply sorting
     result.sort((a, b) => {
       if (sortBy === 'points') {
-        return b.total_points - a.total_points;
+        return (b.total_points || 0) - (a.total_points || 0);
       }
       // Default sort by newest
-      return new Date(b.created_at) - new Date(a.created_at);
+      return new Date(b.created_at || 0) - new Date(a.created_at || 0);
     });
 
     return result;
@@ -101,24 +115,24 @@ const ProblemList = () => {
       <div className="problems-grid">
         {filteredAndSortedProblems().map(problem => (
           <div key={problem.id} className="problem-card">
-            <h3>{problem.title}</h3>
-            <div className="problem-info">
-              <span className={`difficulty ${problem.difficulty}`}>
-                {problem.difficulty}
-              </span>
-              <span className="points">{problem.total_points} points</span>
+            <div className="problem-content">
+              <h3>{problem.title}</h3>
+              <div className="problem-info">
+                <span className={`difficulty ${problem.difficulty}`}>
+                  {problem.difficulty}
+                </span>
+                <span className="points">{problem.total_points} points</span>
+              </div>
+              <p className="description">{problem.description}</p>
             </div>
-            <p className="description">{problem.description}</p>
-            <div className="card-actions">
+            <div className="card-actions" onClick={(e) => e.stopPropagation()}>
               <div className="action-links">
                 <button 
                   type="button"
                   className="edit-link"
                   onClick={(e) => {
                     e.stopPropagation();
-                    e.preventDefault();
-                    const editUrl = `/edit/${problem.id}`;
-                    window.location.href = editUrl;
+                    navigate(`/edit/${problem.id}`);
                   }}
                 >
                   Edit
@@ -128,7 +142,6 @@ const ProblemList = () => {
                   className="delete-link"
                   onClick={(e) => {
                     e.stopPropagation();
-                    e.preventDefault();
                     if (window.confirm('Are you sure you want to delete this problem?')) {
                       handleDelete(problem.id);
                     }

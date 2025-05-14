@@ -268,6 +268,27 @@
   gap: 12px;
 }
 
+.problem-card {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 16px;
+  background-color: white;
+}
+
+.problem-content {
+  flex: 1;
+  margin-bottom: 16px;
+}
+
+.card-actions {
+  border-top: 1px solid #e5e7eb;
+  padding-top: 16px;
+  margin-top: auto;
+}
+
 .action-links {
   display: flex;
   gap: 24px;
@@ -277,18 +298,20 @@
 
 .edit-link, .delete-link {
   font-size: 14px;
-  background: none;
-  border: none;
   padding: 8px 16px;
   cursor: pointer;
   border-radius: 4px;
   text-decoration: none;
   transition: all 0.2s;
+  display: inline-block;
+  text-align: center;
+  min-width: 80px;
 }
 
 .edit-link {
   color: #2563eb;
   background-color: #eff6ff;
+  border: 1px solid #2563eb;
 }
 
 .edit-link:hover {
@@ -298,10 +321,16 @@
 .delete-link {
   color: #dc2626;
   background-color: #fef2f2;
+  border: 1px solid #dc2626;
 }
 
 .delete-link:hover {
   background-color: #fee2e2;
+}
+
+.solve-btn {
+  margin-top: 8px;
+  width: 100%;
 }
 
 .solve-btn {
