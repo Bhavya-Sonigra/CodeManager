@@ -22,11 +22,14 @@ export const problemService = {
     }
   },
 
-  // Fetch a single problem by ID
+  // Get problem by ID
   async getProblemById(id) {
     try {
       const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.PROBLEMS}/${id}`);
       const data = await handleResponse(response);
+      if (!data) {
+        throw new Error('Problem not found');
+      }
       return { data, error: null };
     } catch (error) {
       console.error('Error fetching problem:', error.message);
@@ -60,7 +63,14 @@ export const problemService = {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(problemData),
+        body: JSON.stringify({
+          ...problemData,
+          total_points: Number(problemData.total_points),
+          testcases: problemData.testcases.map(tc => ({
+            ...tc,
+            points: Number(tc.points)
+          }))
+        }),
       });
       const data = await handleResponse(response);
       return { data, error: null };

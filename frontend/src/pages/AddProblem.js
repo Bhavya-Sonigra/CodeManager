@@ -1,10 +1,12 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import { problemService } from '../services/problemService';
 import './AddProblem.css';
 
 const AddProblem = () => {
   const navigate = useNavigate();
+  const { id } = useParams();
+  const [isEditMode, setIsEditMode] = useState(false);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -18,6 +20,41 @@ const AddProblem = () => {
 
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    const fetchProblem = async () => {
+      if (id) {
+        setIsEditMode(true);
+        try {
+          const { data, error } = await problemService.getProblemById(id);
+          if (error) {
+            setError(error.message || 'Failed to fetch problem');
+            return;
+          }
+          if (data) {
+            setFormData({
+              title: data.title,
+              description: data.description,
+              difficulty: data.difficulty,
+              total_points: data.total_points.toString()
+            });
+            if (data.testcases && data.testcases.length > 0) {
+              setTestcases(data.testcases.map(tc => ({
+                ...tc,
+                points: tc.points.toString()
+              })));
+            }
+          }
+        } catch (error) {
+          setError('Failed to fetch problem details');
+          console.error('Error fetching problem:', error);
+          navigate('/');
+        }
+      }
+    };
+
+    fetchProblem();
+  }, [id, navigate]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -40,7 +77,21 @@ const AddProblem = () => {
         testcases: testcases
       };
 
-      const response = await problemService.createProblem(problemData);
+      const processedData = {
+        ...problemData,
+        total_points: Number(problemData.total_points),
+        testcases: problemData.testcases.map(tc => ({
+          ...tc,
+          points: Number(tc.points)
+        }))
+      };
+
+      let response;
+      if (isEditMode) {
+        response = await problemService.updateProblem(id, processedData);
+      } else {
+        response = await problemService.createProblem(processedData);
+      }
 
       if (response.error) {
         setError(response.error.message || 'Failed to save problem');
@@ -87,7 +138,7 @@ const AddProblem = () => {
 
   return (
     <div className="add-problem-container">
-      <h1>Create New Problem</h1>
+      <h1>{isEditMode ? 'Edit Problem' : 'Create New Problem'}</h1>
       
       <form onSubmit={handleSubmit} className="problem-form">
         {error && <div className="error-message">{error}</div>}
@@ -225,7 +276,7 @@ const AddProblem = () => {
           </div>
 
           <button type="submit" className="submit-button" disabled={isSubmitting}>
-            {isSubmitting ? 'Saving...' : 'Create Problem'}
+            {isSubmitting ? 'Saving...' : isEditMode ? 'Update Problem' : 'Create Problem'}
           </button>
         </fieldset>
       </form>

@@ -12,6 +12,7 @@ function App(){
         <Routes>
           <Route path="/" element={<Problemlist />} />
           <Route path="/add" element={<AddProblem/>}></Route>
+          <Route path="/edit/:id" element={<AddProblem />} />
         </Routes>
       </Layout>
     </Router>

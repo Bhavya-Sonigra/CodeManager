@@ -102,7 +102,7 @@ const ProblemList = () => {
 
       <div className="problems-grid">
         {filteredAndSortedProblems().map(problem => (
-          <div key={problem.id} className={`problem-card`}>
+          <div key={problem.id} className="problem-card">
             <h3>{problem.title}</h3>
             <div className="problem-info">
               <span className={`difficulty ${problem.difficulty}`}>
@@ -111,20 +111,22 @@ const ProblemList = () => {
               <span className="points">{problem.total_points} points</span>
             </div>
             <p className="description">{problem.description}</p>
-            <div className="problem-actions">
-              <Link to={`/edit/${problem.id}`} className="edit-link">
-                Edit
+            <div className="card-actions">
+              <div className="action-links">
+                <Link to={`/edit/${problem.id}`} className="edit-link">
+                  Edit
+                </Link>
+                <button
+                  onClick={() => handleDelete(problem.id)}
+                  className="delete-link"
+                >
+                  Delete
+                </button>
+              </div>
+              <Link to={`/problem/${problem.id}`} className="solve-btn">
+                Solve Problem
               </Link>
-              <button
-                onClick={() => handleDelete(problem.id)}
-                className="delete-button"
-              >
-                Delete
-              </button>
             </div>
-            <Link to={`/problem/${problem.id}`} className="solve-btn">
-              Solve Problem
-            </Link>
           </div>
         ))}
       </div>
