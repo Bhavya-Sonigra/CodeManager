@@ -9,45 +9,53 @@ const AddProblem = () => {
     title: '',
     description: '',
     difficulty: 'easy',
-    total_points: 10,
+    total_points: '0'
   });
 
   const [testcases, setTestcases] = useState([
-    { input: '', expected_output: '', difficulty: 'easy', points: 0 }
+    { input: '', expected_output: '', difficulty: 'easy', points: '0' }
   ]);
 
   const [error, setError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setIsSubmitting(true);
+    setError(null);
+
     try {
-      // Validate total points match testcase points
-      const totalTestcasePoints = testcases.reduce((sum, tc) => sum + Number(tc.points), 0);
-      if (totalTestcasePoints !== Number(formData.total_points)) {
-        setError(`Total points (${formData.total_points}) must match sum of testcase points (${totalTestcasePoints})`);
+      // Calculate total testcase points
+      const testcasePointsTotal = testcases.reduce((sum, tc) => sum + Number(tc.points), 0);
+      
+      // Validate total points match
+      if (Math.abs(testcasePointsTotal - Number(formData.total_points)) > 0.01) {
+        setError('Total points from testcases must equal problem total points');
+        setIsSubmitting(false);
         return;
       }
 
-      // Create problem and get its ID
-      const problem = await problemService.createProblem(formData);
-      
-      // Create testcases for the problem
-      const testcasePromises = testcases.map(testcase => {
-        return problemService.createTestcase({
-          ...testcase,
-          problem_id: problem.id
-        });
-      });
-      
-      await Promise.all(testcasePromises);
+      const problemData = {
+        ...formData,
+        testcases: testcases
+      };
+
+      const response = await problemService.createProblem(problemData);
+
+      if (response.error) {
+        setError(response.error.message || 'Failed to save problem');
+        return;
+      }
+
       navigate('/');
     } catch (error) {
-      setError(error.message);
-      console.error('Error creating problem:', error);
+      setError(error.message || 'An unexpected error occurred');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
-  const handleChange = (e) => {
+  const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({
       ...prev,
@@ -58,13 +66,19 @@ const AddProblem = () => {
   const handleTestcaseChange = (index, field, value) => {
     setTestcases(prev => {
       const updated = [...prev];
-      updated[index] = { ...updated[index], [field]: value };
+      updated[index] = {
+        ...updated[index],
+        [field]: value
+      };
       return updated;
     });
   };
 
   const addTestcase = () => {
-    setTestcases(prev => [...prev, { input: '', expected_output: '', difficulty: 'easy', points: 0 }]);
+    setTestcases(prev => [
+      ...prev,
+      { input: '', expected_output: '', difficulty: 'easy', points: '0' }
+    ]);
   };
 
   const removeTestcase = (index) => {
@@ -73,94 +87,99 @@ const AddProblem = () => {
 
   return (
     <div className="add-problem-container">
-      <h1>Add New Problem</h1>
-      {error && <div className="error-message">{error}</div>}
+      <h1>Create New Problem</h1>
       
       <form onSubmit={handleSubmit} className="problem-form">
-        <div className="form-section">
-          <h2>Problem Details</h2>
-          <div className="form-group">
-            <label htmlFor="title">Problem Title</label>
-            <input
-              type="text"
-              id="title"
-              name="title"
-              value={formData.title}
-              onChange={handleChange}
-              required
-            />
+        {error && <div className="error-message">{error}</div>}
+
+        <fieldset disabled={isSubmitting}>
+          <div className="form-section">
+            <h2>Problem Details</h2>
+            
+            <div className="form-group">
+              <label htmlFor="title">Problem Title</label>
+              <input
+                type="text"
+                id="title"
+                name="title"
+                value={formData.title}
+                onChange={handleInputChange}
+                required
+              />
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="description">Description</label>
+              <textarea
+                id="description"
+                name="description"
+                value={formData.description}
+                onChange={handleInputChange}
+                required
+                rows="6"
+              />
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="difficulty">Difficulty</label>
+              <select
+                id="difficulty"
+                name="difficulty"
+                value={formData.difficulty}
+                onChange={handleInputChange}
+                required
+              >
+                <option value="easy">Easy</option>
+                <option value="medium">Medium</option>
+                <option value="hard">Hard</option>
+              </select>
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="total_points">Total Points</label>
+              <input
+                type="number"
+                id="total_points"
+                name="total_points"
+                value={formData.total_points}
+                onChange={handleInputChange}
+                min="0"
+                step="0.1"
+                required
+              />
+            </div>
           </div>
 
-          <div className="form-group">
-            <label htmlFor="description">Description</label>
-            <textarea
-              id="description"
-              name="description"
-              value={formData.description}
-              onChange={handleChange}
-              required
-              rows="6"
-            />
-          </div>
-
-          <div className="form-group">
-            <label htmlFor="difficulty">Difficulty</label>
-            <select
-              id="difficulty"
-              name="difficulty"
-              value={formData.difficulty}
-              onChange={handleChange}
-              required
-            >
-              <option value="easy">Easy</option>
-              <option value="medium">Medium</option>
-              <option value="hard">Hard</option>
-            </select>
-          </div>
-
-          <div className="form-group">
-            <label htmlFor="total_points">Total Points</label>
-            <input
-              type="number"
-              id="total_points"
-              name="total_points"
-              value={formData.total_points}
-              onChange={handleChange}
-              required
-              min="1"
-            />
-          </div>
-        </div>
-
-        <div className="form-section">
-          <h2>Testcases</h2>
-          {testcases.map((testcase, index) => (
-            <div key={index} className="testcase-form">
-              <h3>Testcase {index + 1}</h3>
-              <div className="form-group">
-                <label>Input</label>
-                <textarea
-                  value={testcase.input}
-                  onChange={(e) => handleTestcaseChange(index, 'input', e.target.value)}
-                  required
-                  rows="3"
-                />
-              </div>
-              
-              <div className="form-group">
-                <label>Expected Output</label>
-                <textarea
-                  value={testcase.expected_output}
-                  onChange={(e) => handleTestcaseChange(index, 'expected_output', e.target.value)}
-                  required
-                  rows="3"
-                />
-              </div>
-              
-              <div className="form-row">
+          <div className="form-section">
+            <h2>Test Cases</h2>
+            {testcases.map((testcase, index) => (
+              <div key={index} className="testcase-form">
+                <h3>Test Case {index + 1}</h3>
+                
                 <div className="form-group">
-                  <label>Difficulty</label>
+                  <label htmlFor={`input-${index}`}>Input</label>
+                  <textarea
+                    id={`input-${index}`}
+                    value={testcase.input}
+                    onChange={(e) => handleTestcaseChange(index, 'input', e.target.value)}
+                    required
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label htmlFor={`output-${index}`}>Expected Output</label>
+                  <textarea
+                    id={`output-${index}`}
+                    value={testcase.expected_output}
+                    onChange={(e) => handleTestcaseChange(index, 'expected_output', e.target.value)}
+                    required
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label htmlFor={`tc-difficulty-${index}`}>Difficulty</label>
                   <select
+                    id={`tc-difficulty-${index}`}
                     value={testcase.difficulty}
                     onChange={(e) => handleTestcaseChange(index, 'difficulty', e.target.value)}
                     required
@@ -170,44 +189,45 @@ const AddProblem = () => {
                     <option value="hard">Hard</option>
                   </select>
                 </div>
-                
+
                 <div className="form-group">
-                  <label>Points</label>
+                  <label htmlFor={`points-${index}`}>Points</label>
                   <input
                     type="number"
+                    id={`points-${index}`}
                     value={testcase.points}
-                    onChange={(e) => handleTestcaseChange(index, 'points', Number(e.target.value))}
-                    required
+                    onChange={(e) => handleTestcaseChange(index, 'points', e.target.value)}
                     min="0"
-                    step="0.01"
+                    step="0.1"
+                    required
                   />
                 </div>
-              </div>
-              
-              {testcases.length > 1 && (
-                <button 
-                  type="button" 
-                  className="btn btn-danger"
-                  onClick={() => removeTestcase(index)}
-                >
-                  Remove Testcase
-                </button>
-              )}
-            </div>
-          ))}
-          
-          <button 
-            type="button" 
-            className="btn btn-secondary"
-            onClick={addTestcase}
-          >
-            Add Testcase
-          </button>
-        </div>
 
-        <button type="submit" className="btn btn-primary submit-btn">
-          Create Problem
-        </button>
+                {testcases.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => removeTestcase(index)}
+                    className="remove-testcase-button"
+                  >
+                    Remove Test Case
+                  </button>
+                )}
+              </div>
+            ))}
+
+            <button
+              type="button"
+              onClick={addTestcase}
+              className="add-testcase-button"
+            >
+              Add Test Case
+            </button>
+          </div>
+
+          <button type="submit" className="submit-button" disabled={isSubmitting}>
+            {isSubmitting ? 'Saving...' : 'Create Problem'}
+          </button>
+        </fieldset>
       </form>
     </div>
   );

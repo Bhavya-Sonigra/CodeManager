@@ -11,19 +11,24 @@ const ProblemList = () => {
   const [error, setError] = useState(null);
 
   useEffect(() => {
+    const fetchProblems = async () => {
+      try {
+        const { data, error } = await problemService.getAllProblems();
+        if (error) {
+          setError(error.message || 'Failed to load problems');
+          return;
+        }
+        setProblems(data);
+      } catch (error) {
+        console.error('Error fetching problems:', error);
+        setError('Failed to load problems');
+      } finally {
+        setLoading(false);
+      }
+    };
+
     fetchProblems();
   }, []);
-
-  const fetchProblems = async () => {
-    try {
-      const data = await problemService.getAllProblems();
-      setProblems(data);
-      setLoading(false);
-    } catch (err) {
-      setError('Failed to fetch problems');
-      setLoading(false);
-    }
-  };
 
   const handleFilterChange = (e) => {
     setFilter(e.target.value);
@@ -31,6 +36,22 @@ const ProblemList = () => {
 
   const handleSortChange = (e) => {
     setSortBy(e.target.value);
+  };
+
+  const handleDelete = async (id) => {
+    if (window.confirm('Are you sure you want to delete this problem?')) {
+      try {
+        const { error } = await problemService.deleteProblem(id);
+        if (error) {
+          setError(error.message || 'Failed to delete problem');
+          return;
+        }
+        setProblems(problems.filter(p => p.id !== id));
+      } catch (error) {
+        console.error('Error deleting problem:', error);
+        setError('Failed to delete problem');
+      }
+    }
   };
 
   const filteredAndSortedProblems = () => {
@@ -81,19 +102,26 @@ const ProblemList = () => {
 
       <div className="problems-grid">
         {filteredAndSortedProblems().map(problem => (
-          <div key={problem.id} className={`problem-card ${problem.difficulty}`}>
+          <div key={problem.id} className={`problem-card`}>
             <h3>{problem.title}</h3>
             <div className="problem-info">
               <span className={`difficulty ${problem.difficulty}`}>
-                {problem.difficulty.charAt(0).toUpperCase() + problem.difficulty.slice(1)}
+                {problem.difficulty}
               </span>
               <span className="points">{problem.total_points} points</span>
             </div>
-            <p className="problem-description">
-              {problem.description.length > 100
-                ? `${problem.description.substring(0, 100)}...`
-                : problem.description}
-            </p>
+            <p className="description">{problem.description}</p>
+            <div className="problem-actions">
+              <Link to={`/edit/${problem.id}`} className="edit-link">
+                Edit
+              </Link>
+              <button
+                onClick={() => handleDelete(problem.id)}
+                className="delete-button"
+              >
+                Delete
+              </button>
+            </div>
             <Link to={`/problem/${problem.id}`} className="solve-btn">
               Solve Problem
             </Link>
