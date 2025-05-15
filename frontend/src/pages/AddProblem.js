@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { problemService } from '../services/problemService';
-import { FiAlertCircle, FiPlus, FiTrash2, FiCheckCircle } from 'react-icons/fi';
+import { FiAlertCircle, FiPlus, FiTrash2, FiCheckCircle, FiDatabase } from 'react-icons/fi';
 import './AddProblem.css';
 
 const AddProblem = () => {
@@ -12,15 +12,24 @@ const AddProblem = () => {
     title: '',
     description: '',
     difficulty: 'easy',
-    total_points: '0'
+    total_points: 0  // Changed to number instead of string
   });
 
-  const [testcases, setTestcases] = useState([
-    { input: '', expected_output: '', difficulty: 'easy', points: '0' }
-  ]);
+  const [testcases, setTestcases] = useState([{
+    input: '',
+    expected_output: '',
+    difficulty: 'easy',
+    points: 0
+  }]);
 
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+
+  // Clear messages when form data changes
+  useEffect(() => {
+    setError(null);
+    setSuccess(null);
+  }, [formData, testcases]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
@@ -30,40 +39,57 @@ const AddProblem = () => {
         try {
           const { data, error } = await problemService.getProblemById(id);
           if (error) {
+            console.error('Error fetching problem:', error);
             setError(error.message || 'Failed to fetch problem');
             return;
           }
-          if (data) {
-            setFormData({
-              title: data.title,
-              description: data.description,
-              difficulty: data.difficulty,
-              total_points: data.total_points.toString()
-            });
-            if (data.testcases && data.testcases.length > 0) {
-              setTestcases(data.testcases.map(tc => ({
-                ...tc,
-                points: tc.points.toString()
-              })));
-            }
+          if (!data) {
+            setError('Problem not found');
+            return;
           }
+
+          // Safely set form data with fallbacks
+          setFormData({
+            title: data.title || '',
+            description: data.description || '',
+            difficulty: data.difficulty || 'easy',
+            total_points: (data.total_points || 0).toString()
+          });
+
+          // Safely set testcases with fallbacks
+          const testcases = Array.isArray(data.testcases) ? data.testcases : [];
+          setTestcases(testcases.map(tc => ({
+            input: tc.input || '',
+            expected_output: tc.expected_output || '',
+            difficulty: tc.difficulty || 'easy',
+            points: (tc.points || 0).toString()
+          })));
+
+          setSuccess('Problem loaded successfully');
         } catch (error) {
-          setError('Failed to fetch problem details');
           console.error('Error fetching problem:', error);
-          navigate('/');
+          setError('Failed to fetch problem details');
         }
       }
     };
 
     fetchProblem();
-  }, [id, navigate]);
+  }, [id]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
     setError(null);
+    setSuccess(null);
 
     try {
+      // Validate at least one test case exists
+      if (testcases.length === 0) {
+        setError('At least one test case is required');
+        setIsSubmitting(false);
+        return;
+      }
+
       // Calculate total testcase points
       const testcasePointsTotal = testcases.reduce((sum, tc) => sum + Number(tc.points), 0);
       
@@ -74,19 +100,26 @@ const AddProblem = () => {
         return;
       }
 
-      const problemData = {
-        ...formData,
-        testcases: testcases
-      };
-
       const processedData = {
-        ...problemData,
-        total_points: Number(problemData.total_points),
-        testcases: problemData.testcases.map(tc => ({
-          ...tc,
-          points: Number(tc.points)
+        title: formData.title.trim(),
+        description: formData.description.trim(),
+        difficulty: formData.difficulty,
+        total_points: Number(formData.total_points) || 0,
+        testCases: testcases.map(tc => ({
+          input: tc.input.trim(),
+          expectedOutput: tc.expected_output.trim()
         }))
       };
+
+      // Validate total_points
+      if (isNaN(processedData.total_points)) {
+        setError('Total points must be a valid number');
+        setIsSubmitting(false);
+        return;
+      }
+
+      // Log the data being sent for debugging
+      console.log('Sending data to backend:', processedData);
 
       let response;
       if (isEditMode) {
@@ -96,7 +129,14 @@ const AddProblem = () => {
       }
 
       if (response.error) {
-        setError(response.error.message || 'Failed to save problem');
+        const errorMsg = response.error.message;
+        if (errorMsg.includes('duplicate')) {
+          setError('A problem with this title already exists. Please choose a different title.');
+        } else if (errorMsg.includes('validation')) {
+          setError('Please check your input. Make sure all required fields are filled correctly.');
+        } else {
+          setError(errorMsg || 'Failed to save problem');
+        }
         return;
       }
 
@@ -105,9 +145,14 @@ const AddProblem = () => {
         navigate('/');
       }, 1500);
     } catch (error) {
-      setError(error.message || 'An unexpected error occurred');
+      console.error('Error in handleSubmit:', error);
+      setError(error.message || 'An unexpected error occurred. Please try again.');
     } finally {
       setIsSubmitting(false);
+      // Scroll to error/success message if present
+      if (error || success) {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
     }
   };
 
@@ -131,19 +176,56 @@ const AddProblem = () => {
   };
 
   const addTestcase = () => {
-    setTestcases(prev => [
-      ...prev,
-      { input: '', expected_output: '', difficulty: 'easy', points: '0' }
-    ]);
+    setTestcases([...testcases, { input: '', expected_output: '' }]);
   };
 
   const removeTestcase = (index) => {
     setTestcases(prev => prev.filter((_, i) => i !== index));
   };
 
+  const fillSampleData = () => {
+    const title = `Sample Problem ${Math.floor(Math.random() * 1000)}`;
+    const description = 'Write a function that determines if a given number is a palindrome.';
+    
+    setFormData({
+      title,
+      description,
+      difficulty: 'easy',
+      total_points: 10
+    });
+
+    setTestcases([
+      {
+        input: '121',
+        expected_output: 'true'
+      },
+      {
+        input: '-121',
+        expected_output: 'false'
+      },
+      {
+        input: '10',
+        expected_output: 'false'
+      }
+    ]);
+  };
+
   return (
     <div className="add-problem-container">
-      <h1>{isEditMode ? 'Edit Problem' : 'Create New Problem'}</h1>
+      <div className="header-container">
+        <h1>{isEditMode ? 'Edit Problem' : 'Create New Problem'}</h1>
+        {!isEditMode && (
+          <button
+            type="button"
+            onClick={fillSampleData}
+            className="fill-sample-button"
+            title="Fill with sample data"
+          >
+            <FiDatabase size={18} />
+            <span>Fill Sample</span>
+          </button>
+        )}
+      </div>
       
       <form onSubmit={handleSubmit} className="problem-form">
         {error && (
@@ -270,16 +352,16 @@ const AddProblem = () => {
                   />
                 </div>
 
-                {testcases.length > 1 && (
+                <div style={{ marginTop: '1rem' }}>
                   <button
                     type="button"
                     onClick={() => removeTestcase(index)}
                     className="remove-testcase-button"
                   >
                     <FiTrash2 size={18} />
-                    Remove Test Case
+                    <span>Remove Test Case</span>
                   </button>
-                )}
+                </div>
               </div>
             ))}
           </div>

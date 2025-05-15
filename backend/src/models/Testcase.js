@@ -87,5 +87,3 @@ class Testcase {
 }
 
 module.exports = Testcase;
-
-module.exports = Testcase;

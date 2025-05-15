@@ -2,11 +2,25 @@ import API_BASE_URL, { API_ENDPOINTS } from '../config/api';
 
 // Helper function to handle API responses
 const handleResponse = async (response) => {
+  const data = await response.json();
   if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.message || 'Something went wrong');
+    if (data.errors && Array.isArray(data.errors)) {
+      // Handle validation errors from express-validator
+      const errorMessages = data.errors.map(err => err.msg).join('\n');
+      throw new Error(errorMessages);
+    }
+    
+    const errorMessage = data.message || {
+      400: 'Invalid data provided. Please check your input.',
+      401: 'You need to be logged in.',
+      403: 'You don\'t have permission to perform this action.',
+      404: 'The requested resource was not found.',
+      500: 'Server error. Please try again later.'
+    }[response.status] || 'Something went wrong';
+    
+    throw new Error(errorMessage);
   }
-  return response.json();
+  return data;
 };
 
 export const problemService = {

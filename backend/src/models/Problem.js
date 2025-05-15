@@ -23,11 +23,11 @@ class Problem {
         *,
         testcases (*)
       `)
-      .eq('id', id)
-      .single();
+      .eq('id', id);
 
     if (error) throw error;
-    return data;
+    if (!data || data.length === 0) return null;
+    return data[0];
   }
 
   // Create a new problem
@@ -71,11 +71,11 @@ class Problem {
       .from('problems')
       .delete()
       .eq('id', id)
-      .select()
-      .single();
+      .select();
 
     if (error) throw error;
-    return data;
+    if (!data || data.length === 0) return null;
+    return data[0];
   }
 }
 

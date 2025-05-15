@@ -51,7 +51,16 @@ exports.getProblemById = async (req, res) => {
 
 exports.createProblem = async (req, res) => {
   try {
-    const { title, description, difficulty, testCases } = req.body;
+    const { title, description, difficulty, total_points, testCases } = req.body;
+
+    // Validate total_points
+    const points = Number(total_points);
+    if (isNaN(points)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Total points must be a valid number'
+      });
+    }
 
     // Additional validation beyond middleware
     if (!Array.isArray(testCases) || testCases.some(test => {
@@ -69,10 +78,7 @@ exports.createProblem = async (req, res) => {
       title: title.trim(),
       description: description.trim(),
       difficulty,
-      testCases: testCases.map(test => ({
-        input: test.input,
-        expectedOutput: test.expectedOutput
-      }))
+      total_points: points // Use the validated points
     });
 
     if (!problem) {
@@ -80,11 +86,16 @@ exports.createProblem = async (req, res) => {
     }
 
     // Create test cases
+    // Calculate points per test case
+    const pointsPerTest = points / testCases.length;
+
     await Promise.all(testCases.map(test => 
-      Testcase.createTestCase({
-        problemId: problem.id,
+      Testcase.createTestcase({
+        problem_id: problem.id,
         input: test.input,
-        expectedOutput: test.expectedOutput
+        expected_output: test.expectedOutput,
+        difficulty: 'easy',
+        points: pointsPerTest
       })
     ));
 

@@ -55,6 +55,13 @@ exports.validateProblemCreation = [
     .withMessage('Difficulty is required')
     .isIn(['easy', 'medium', 'hard'])
     .withMessage('Invalid difficulty level'),
+  body('total_points')
+    .notEmpty()
+    .withMessage('Total points is required')
+    .isNumeric()
+    .withMessage('Total points must be a number')
+    .custom(value => value >= 0)
+    .withMessage('Total points must be non-negative'),
   body('testCases')
     .isArray({ min: 1 })
     .withMessage('At least one test case is required'),
