@@ -15,7 +15,7 @@ function App(){
         <Routes>
           <Route path="/" element={<Problemlist />} />
           <Route path="/problems" element={<Problemlist />} />
-          <Route path="/add" element={<AddProblem />} />
+          <Route path="/add" element={<AddProblem/>} />
           <Route path="/edit/:id" element={<EditProblem />} />
           <Route path="/solve/:id" element={<ProblemSolver />} />
         </Routes>

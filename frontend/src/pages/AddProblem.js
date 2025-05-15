@@ -12,25 +12,25 @@ const AddProblem = () => {
     title: '',
     description: '',
     difficulty: 'easy',
-    total_points: '0'
+    total_points: 0  // Changed to number instead of string
   });
 
   const [testcases, setTestcases] = useState([{
     input: '',
     expected_output: '',
     difficulty: 'easy',
-    points: '0'
+    points: 0
   }]);
 
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Clear messages when form data changes
   useEffect(() => {
     setError(null);
     setSuccess(null);
   }, [formData, testcases]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     const fetchProblem = async () => {
@@ -39,54 +39,35 @@ const AddProblem = () => {
         try {
           const { data, error } = await problemService.getProblemById(id);
           if (error) {
-            console.error('Error fetching problem:', error);
             setError(error.message || 'Failed to fetch problem');
             return;
           }
-          if (!data) {
-            setError('Problem not found');
-            return;
+          if (data) {
+            setFormData({
+              title: data.title,
+              description: data.description,
+              difficulty: data.difficulty,
+              total_points: data.total_points.toString()
+            });
+            if (data.testcases && data.testcases.length > 0) {
+              setTestcases(data.testcases.map(tc => ({
+                input: tc.input,
+                expected_output: tc.expected_output,
+                difficulty: tc.difficulty || 'easy',
+                points: tc.points.toString()
+              })));
+            }
           }
-
-          // Safely set form data with fallbacks
-          setFormData({
-            title: data.title || '',
-            description: data.description || '',
-            difficulty: data.difficulty || 'easy',
-            total_points: (data.total_points || 0).toString()
-          });
-
-          // Safely set testcases with fallbacks
-          if (Array.isArray(data.testcases) && data.testcases.length > 0) {
-            const existingTestcases = data.testcases.map(tc => ({
-              id: tc.id,
-              input: tc.input || '',
-              expected_output: tc.expected_output || '',
-              difficulty: tc.difficulty || 'easy',
-              points: (tc.points || 0).toString()
-            }));
-            console.log('Setting existing testcases:', existingTestcases);
-            setTestcases(existingTestcases);
-          } else {
-            // If no testcases, initialize with one empty testcase
-            setTestcases([{
-              input: '',
-              expected_output: '',
-              difficulty: 'easy',
-              points: '0'
-            }]);
-          }
-
-          setSuccess('Problem loaded successfully');
         } catch (error) {
-          console.error('Error fetching problem:', error);
           setError('Failed to fetch problem details');
+          console.error('Error fetching problem:', error);
+          navigate('/');
         }
       }
     };
 
     fetchProblem();
-  }, [id]);
+  }, [id, navigate]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -96,47 +77,30 @@ const AddProblem = () => {
 
     try {
       // Validate at least one test case exists
-      if (!Array.isArray(testcases) || testcases.length === 0) {
+      if (testcases.length === 0) {
         setError('At least one test case is required');
         setIsSubmitting(false);
         return;
       }
 
-      // Validate all test cases have required fields
-      const invalidTestcase = testcases.find(tc => 
-        !tc?.input?.trim() || 
-        !tc?.expected_output?.trim() || 
-        isNaN(Number(tc?.points)) || 
-        Number(tc?.points) < 0
-      );
-
-      if (invalidTestcase) {
-        setError('All test cases must have input, expected output, and valid points');
-        setIsSubmitting(false);
-        return;
-      }
-
       // Calculate total testcase points
-      const testcasePointsTotal = testcases.reduce((sum, tc) => sum + Number(tc?.points || 0), 0);
+      const testcasePointsTotal = testcases.reduce((sum, tc) => sum + Number(tc.points), 0);
       
       // Validate total points match
       if (Math.abs(testcasePointsTotal - Number(formData.total_points)) > 0.01) {
-        setError(`Total points from testcases (${testcasePointsTotal}) must equal problem total points (${formData.total_points})`);
+        setError('Total points from testcases must equal problem total points');
         setIsSubmitting(false);
         return;
       }
 
       const processedData = {
-        title: formData.title?.trim() || '',
-        description: formData.description?.trim() || '',
-        difficulty: formData.difficulty || 'easy',
+        title: formData.title.trim(),
+        description: formData.description.trim(),
+        difficulty: formData.difficulty,
         total_points: Number(formData.total_points) || 0,
-        testcases: testcases.map(tc => ({
-          id: tc.id, // Keep the ID for existing test cases
-          input: tc.input?.trim() || '',
-          expected_output: tc.expected_output?.trim() || '',
-          difficulty: tc.difficulty || 'easy',
-          points: Number(tc.points) || 0
+        testCases: testcases.map(tc => ({
+          input: tc.input.trim(),
+          expectedOutput: tc.expected_output.trim()
         }))
       };
 
@@ -147,7 +111,8 @@ const AddProblem = () => {
         return;
       }
 
-      console.log('Submitting data:', processedData);
+      // Log the data being sent for debugging
+      console.log('Sending data to backend:', processedData);
 
       let response;
       if (isEditMode) {
@@ -192,34 +157,23 @@ const AddProblem = () => {
     }));
   };
 
-  const handleAddTestcase = () => {
-    setTestcases(prevTestcases => [...prevTestcases, {
-      input: '',
-      expected_output: '',
-      difficulty: 'easy',
-      points: '0'
-    }]);
-  };
-
-  const handleRemoveTestcase = (index) => {
-    if (testcases.length <= 1) {
-      setError('At least one test case is required');
-      return;
-    }
-    setTestcases(prevTestcases => prevTestcases.filter((_, i) => i !== index));
-  };
-
   const handleTestcaseChange = (index, field, value) => {
-    setTestcases(prevTestcases => {
-      const updatedTestcases = [...prevTestcases];
-      if (updatedTestcases[index]) {
-        updatedTestcases[index] = {
-          ...updatedTestcases[index],
-          [field]: value
-        };
-      }
-      return updatedTestcases;
+    setTestcases(prev => {
+      const updated = [...prev];
+      updated[index] = {
+        ...updated[index],
+        [field]: value
+      };
+      return updated;
     });
+  };
+
+  const addTestcase = () => {
+    setTestcases([...testcases, { input: '', expected_output: '' }]);
+  };
+
+  const removeTestcase = (index) => {
+    setTestcases(prev => prev.filter((_, i) => i !== index));
   };
 
   const fillSampleData = () => {
@@ -251,8 +205,8 @@ const AddProblem = () => {
 
   return (
     <div className="add-problem-container">
-      <div className="form-header">
-        <h1>{isEditMode ? 'Edit Problem' : 'Add New Problem'}</h1>
+      <div className="header-container">
+        <h1>{isEditMode ? 'Edit Problem' : 'Create New Problem'}</h1>
         {!isEditMode && (
           <button
             type="button"
@@ -264,23 +218,28 @@ const AddProblem = () => {
             <span>Fill Sample</span>
           </button>
         )}
+      </div>
+      
+      <form onSubmit={handleSubmit} className="problem-form">
         {error && (
           <div className="error-message">
-            <FiAlertCircle /> {error}
+            <FiAlertCircle size={20} />
+            {error}
           </div>
         )}
         {success && (
           <div className="success-message">
-            <FiCheckCircle /> {success}
+            <FiCheckCircle size={20} />
+            {success}
           </div>
         )}
-      </div>
 
-      <form onSubmit={handleSubmit}>
         <fieldset disabled={isSubmitting}>
           <div className="form-section">
+            <h2>Problem Details</h2>
+            
             <div className="form-group">
-              <label htmlFor="title">Title</label>
+              <label htmlFor="title">Problem Title</label>
               <input
                 type="text"
                 id="title"
@@ -335,103 +294,85 @@ const AddProblem = () => {
 
           <div className="form-section">
             <h2>Test Cases</h2>
-            <div className="testcases-container">
-              {Array.isArray(testcases) && testcases.map((testcase, index) => (
-                <div key={testcase.id || index} className="testcase-form">
-                  <h3>Test Case {index + 1}</h3>
-                  
-                  <div className="form-group">
-                    <label htmlFor={`input-${index}`}>Input</label>
-                    <textarea
-                      id={`input-${index}`}
-                      value={testcase?.input || ''}
-                      onChange={(e) => handleTestcaseChange(index, 'input', e.target.value)}
-                      required
-                      rows="3"
-                    />
-                  </div>
-
-                  <div className="form-group">
-                    <label htmlFor={`output-${index}`}>Expected Output</label>
-                    <textarea
-                      id={`output-${index}`}
-                      value={testcase?.expected_output || ''}
-                      onChange={(e) => handleTestcaseChange(index, 'expected_output', e.target.value)}
-                      required
-                      rows="3"
-                    />
-                  </div>
-
-                  <div className="testcase-meta">
-                    <div className="form-group">
-                      <label htmlFor={`tc-difficulty-${index}`}>Difficulty</label>
-                      <select
-                        id={`tc-difficulty-${index}`}
-                        value={testcase?.difficulty || 'easy'}
-                        onChange={(e) => handleTestcaseChange(index, 'difficulty', e.target.value)}
-                        required
-                      >
-                        <option value="easy">Easy</option>
-                        <option value="medium">Medium</option>
-                        <option value="hard">Hard</option>
-                      </select>
-                    </div>
-
-                    <div className="form-group">
-                      <label htmlFor={`points-${index}`}>Points</label>
-                      <input
-                        type="number"
-                        id={`points-${index}`}
-                        value={testcase?.points || '0'}
-                        onChange={(e) => handleTestcaseChange(index, 'points', e.target.value)}
-                        min="0"
-                        step="0.1"
-                        required
-                      />
-                    </div>
-
-                    <button
-                      type="button"
-                      className="remove-testcase-btn"
-                      onClick={() => handleRemoveTestcase(index)}
-                    >
-                      <FiTrash2 /> Remove
-                    </button>
-                  </div>
+            {testcases.map((testcase, index) => (
+              <div key={index} className="testcase-form">
+                <h3>Test Case {index + 1}</h3>
+                
+                <div className="form-group">
+                  <label htmlFor={`input-${index}`}>Input</label>
+                  <textarea
+                    id={`input-${index}`}
+                    value={testcase.input}
+                    onChange={(e) => handleTestcaseChange(index, 'input', e.target.value)}
+                    required
+                  />
                 </div>
-              ))}
-            </div>
 
-            <button
-              type="button"
-              className="add-testcase-btn"
-              onClick={handleAddTestcase}
-            >
-              <FiPlus /> Add Test Case
-            </button>
+                <div className="form-group">
+                  <label htmlFor={`output-${index}`}>Expected Output</label>
+                  <textarea
+                    id={`output-${index}`}
+                    value={testcase.expected_output}
+                    onChange={(e) => handleTestcaseChange(index, 'expected_output', e.target.value)}
+                    required
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label htmlFor={`tc-difficulty-${index}`}>Difficulty</label>
+                  <select
+                    id={`tc-difficulty-${index}`}
+                    value={testcase.difficulty}
+                    onChange={(e) => handleTestcaseChange(index, 'difficulty', e.target.value)}
+                    required
+                  >
+                    <option value="easy">Easy</option>
+                    <option value="medium">Medium</option>
+                    <option value="hard">Hard</option>
+                  </select>
+                </div>
+
+                <div className="form-group">
+                  <label htmlFor={`points-${index}`}>Points</label>
+                  <input
+                    type="number"
+                    id={`points-${index}`}
+                    value={testcase.points}
+                    onChange={(e) => handleTestcaseChange(index, 'points', e.target.value)}
+                    min="0"
+                    step="0.1"
+                    required
+                  />
+                </div>
+
+                <div style={{ marginTop: '1rem' }}>
+                  <button
+                    type="button"
+                    onClick={() => removeTestcase(index)}
+                    className="remove-testcase-button"
+                  >
+                    <FiTrash2 size={18} />
+                    <span>Remove Test Case</span>
+                  </button>
+                </div>
+              </div>
+            ))}
           </div>
 
-          <div className="form-actions">
-            <button type="submit" className="submit-button" disabled={isSubmitting}>
-              {isSubmitting ? 'Saving...' : isEditMode ? 'Update Problem' : 'Create Problem'}
-            </button>
-            <button type="button" className="cancel-button" onClick={() => navigate('/problems')}>
-              Cancel
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={addTestcase}
+            className="add-testcase-button"
+          >
+            <FiPlus size={18} />
+            Add Test Case
+          </button>
+
+          <button type="submit" className="submit-button" disabled={isSubmitting}>
+            {isSubmitting ? 'Saving...' : isEditMode ? 'Update Problem' : 'Create Problem'}
+          </button>
         </fieldset>
       </form>
-      {!isEditMode && (
-        <button
-          type="button"
-          className="fill-sample-button"
-          title="Fill with sample data"
-          onClick={fillSampleData}
-        >
-          <FiDatabase size={18} />
-          <span>Fill Sample</span>
-        </button>
-      )}
     </div>
   );
 };

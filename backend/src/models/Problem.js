@@ -17,24 +17,31 @@ class Problem {
 
   // Get a single problem by ID with its testcases
   static async getProblemById(id) {
-    const { data, error } = await supabase
-      .from('problems')
-      .select(`
-        *,
-        testcases (id, input, expected_output, difficulty, points)
-      `)
-      .eq('id', id)
-      .maybeSingle();
+    console.log(`Problem model: Getting problem with ID: ${id}`);
+    
+    try {
+      const { data, error } = await supabase
+        .from('problems')
+        .select('*')
+        .eq('id', id)
+        .single();
 
-    if (error) throw error;
-    if (!data) return null;
-
-    // Sort testcases by ID to maintain order
-    if (data.testcases) {
-      data.testcases.sort((a, b) => a.id - b.id);
+      if (error) {
+        console.error('Supabase error in getProblemById:', error);
+        throw error;
+      }
+      
+      if (!data) {
+        console.log('No problem found with ID:', id);
+        return null;
+      }
+      
+      console.log('Problem data retrieved:', data);
+      return data;
+    } catch (error) {
+      console.error('Error in Problem.getProblemById:', error);
+      throw error;
     }
-
-    return data;
   }
 
   // Create a new problem
@@ -56,20 +63,33 @@ class Problem {
 
   // Update a problem
   static async updateProblem(id, problemData) {
-    const { data, error } = await supabase
-      .from('problems')
-      .update({
-        title: problemData.title,
-        description: problemData.description,
-        difficulty: problemData.difficulty,
-        total_points: problemData.total_points
-      })
-      .eq('id', id)
-      .select()
-      .single();
+    console.log(`Problem model: Updating problem with ID: ${id}`);
+    console.log('Update data:', problemData);
+    
+    try {
+      const { data, error } = await supabase
+        .from('problems')
+        .update({
+          title: problemData.title,
+          description: problemData.description,
+          difficulty: problemData.difficulty,
+          total_points: problemData.total_points
+        })
+        .eq('id', id)
+        .select()
+        .single();
 
-    if (error) throw error;
-    return data;
+      if (error) {
+        console.error('Supabase error in updateProblem:', error);
+        throw error;
+      }
+      
+      console.log('Problem updated successfully:', data);
+      return data;
+    } catch (error) {
+      console.error('Error in Problem.updateProblem:', error);
+      throw error;
+    }
   }
 
   // Delete a problem
@@ -78,11 +98,11 @@ class Problem {
       .from('problems')
       .delete()
       .eq('id', id)
-      .select();
+      .select()
+      .single();
 
     if (error) throw error;
-    if (!data || data.length === 0) return null;
-    return data[0];
+    return data;
   }
 }
 

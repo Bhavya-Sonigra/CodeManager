@@ -3,14 +3,28 @@ const supabase = require('../config/db');
 class Testcase {
   // Get all testcases for a problem
   static async getTestcasesByProblemId(problemId) {
-    const { data, error } = await supabase
-      .from('testcases')
-      .select('*')
-      .eq('problem_id', problemId)
-      .order('created_at', { ascending: true });
+    console.log(`Testcase model: Getting testcases for problem ID: ${problemId}`);
+    
+    try {
+      const { data, error } = await supabase
+        .from('testcases')
+        .select('*')
+        .eq('problem_id', problemId)
+        .order('created_at', { ascending: true });
 
-    if (error) throw error;
-    return data;
+      if (error) {
+        console.error('Supabase error in getTestcasesByProblemId:', error);
+        throw error;
+      }
+      
+      console.log(`Retrieved ${data ? data.length : 0} testcases for problem ID: ${problemId}`);
+      console.log('Testcase data:', data);
+      
+      return data || [];
+    } catch (error) {
+      console.error('Error in Testcase.getTestcasesByProblemId:', error);
+      throw error;
+    }
   }
 
   // Create a new testcase

@@ -39,22 +39,34 @@ export const problemService = {
   // Get problem by ID
   async getProblemById(id) {
     try {
+      console.log(`Fetching problem from: ${API_BASE_URL}${API_ENDPOINTS.PROBLEMS}/${id}`);
       const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.PROBLEMS}/${id}`);
-      const result = await handleResponse(response);
+      console.log('Response status:', response.status);
       
-      if (result.error) {
-        return result;
+      const responseData = await response.json();
+      console.log('Raw response data:', responseData);
+      
+      if (!response.ok) {
+        const errorMsg = responseData.error || `HTTP error! status: ${response.status}`;
+        console.error('Error response:', errorMsg);
+        throw new Error(errorMsg);
       }
-
-      // Ensure testcases is an array
-      if (result.data && !Array.isArray(result.data.testcases)) {
-        result.data.testcases = [];
+      
+      if (!responseData.success) {
+        const errorMsg = responseData.error || 'API returned unsuccessful response';
+        console.error('Unsuccessful response:', errorMsg);
+        throw new Error(errorMsg);
       }
-
-      return result;
+      
+      if (!responseData.data) {
+        console.error('No data in response:', responseData);
+        throw new Error('Problem data not found in response');
+      }
+      
+      return { data: responseData.data, error: null };
     } catch (error) {
-      console.error('Error fetching problem:', error);
-      return { error };
+      console.error('Error fetching problem:', error.message);
+      return { data: null, error };
     }
   },
 
@@ -79,27 +91,41 @@ export const problemService = {
   // Update an existing problem
   async updateProblem(id, problemData) {
     try {
-      // Ensure testcases is an array
-      const testcases = Array.isArray(problemData.testcases) ? problemData.testcases : [];
+      console.log(`Updating problem with ID: ${id}`);
+      console.log('Problem data to send:', problemData);
+      
+      // Ensure numeric values are properly converted
+      const processedData = {
+        ...problemData,
+        total_points: Number(problemData.total_points),
+        testcases: problemData.testcases.map(tc => ({
+          ...tc,
+          points: Number(tc.points)
+        }))
+      };
+      
+      console.log('Processed data to send:', processedData);
       
       const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.PROBLEMS}/${id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          ...problemData,
-          total_points: Number(problemData.total_points),
-          testcases: testcases.map(tc => ({
-            ...tc,
-            points: Number(tc.points || 0),
-            difficulty: tc.difficulty || 'easy'
-          }))
-        }),
+        body: JSON.stringify(processedData),
       });
       
-      const data = await handleResponse(response);
-      return { data, error: null };
+      console.log('Update response status:', response.status);
+      
+      const responseData = await response.json();
+      console.log('Update response data:', responseData);
+      
+      if (!response.ok) {
+        const errorMsg = responseData.error || `HTTP error! status: ${response.status}`;
+        console.error('Error response:', errorMsg);
+        throw new Error(errorMsg);
+      }
+      
+      return { data: responseData.data, error: null };
     } catch (error) {
       console.error('Error updating problem:', error.message);
       return { data: null, error };

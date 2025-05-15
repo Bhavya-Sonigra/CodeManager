@@ -23,8 +23,21 @@ exports.getAllProblems = async (req, res) => {
 
 exports.getProblemById = async (req, res) => {
   try {
+    console.log(`Getting problem with ID: ${req.params.id}`);
+    
+    // Validate ID
+    if (!req.params.id) {
+      return res.status(400).json({
+        success: false,
+        error: 'Problem ID is required'
+      });
+    }
+    
     const problem = await Problem.getProblemById(req.params.id);
+    console.log('Problem data from database:', problem);
+    
     if (!problem) {
+      console.log('Problem not found');
       return res.status(404).json({
         success: false,
         error: 'Problem not found'
@@ -33,12 +46,28 @@ exports.getProblemById = async (req, res) => {
 
     // Validate problem data structure
     if (!problem.title || !problem.description || !problem.difficulty) {
-      throw new Error('Invalid problem data structure');
+      console.error('Invalid problem data structure:', problem);
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid problem data structure'
+      });
     }
 
+    // Get testcases separately
+    console.log(`Fetching testcases for problem ID: ${req.params.id}`);
+    const testcases = await Testcase.getTestcasesByProblemId(req.params.id);
+    console.log('Testcases from database:', testcases);
+
+    const responseData = {
+      ...problem,
+      testcases: testcases || []
+    };
+    
+    console.log('Sending response data:', responseData);
+    
     res.json({
       success: true,
-      data: problem
+      data: responseData
     });
   } catch (error) {
     console.error('Error in getProblemById:', error);
@@ -116,107 +145,73 @@ exports.createProblem = async (req, res) => {
 
 exports.updateProblem = async (req, res) => {
   try {
+    console.log('Update problem request received:', req.params.id);
+    console.log('Request body:', req.body);
+    
     const { title, description, difficulty, total_points, testcases } = req.body;
     const problemId = req.params.id;
 
     // Validate problem exists
     const existingProblem = await Problem.getProblemById(problemId);
     if (!existingProblem) {
+      console.log('Problem not found for update:', problemId);
       return res.status(404).json({
         success: false,
         error: 'Problem not found'
       });
     }
 
-    // Validate test cases
-    if (!Array.isArray(testcases) || testcases.length === 0) {
+    // Additional validation for testcases
+    if (testcases && (!Array.isArray(testcases) || testcases.some(test => {
+      return !test.input || !test.expected_output;
+    }))) {
+      console.error('Invalid testcase format in update request');
       return res.status(400).json({
         success: false,
-        error: 'At least one test case is required'
-      });
-    }
-
-    // Validate test case format
-    const invalidTestcase = testcases.some(test => {
-      return !test.input || 
-             !test.expected_output || 
-             typeof test.points !== 'number' || 
-             !test.difficulty;
-    });
-
-    if (invalidTestcase) {
-      return res.status(400).json({
-        success: false,
-        error: 'Invalid test case format. Each test case must have input, expected_output, points, and difficulty'
-      });
-    }
-
-    // Validate total points
-    const testcasePointsTotal = testcases.reduce((sum, tc) => sum + tc.points, 0);
-    if (Math.abs(testcasePointsTotal - total_points) > 0.01) {
-      return res.status(400).json({
-        success: false,
-        error: `Total points from testcases (${testcasePointsTotal}) must equal problem total points (${total_points})`
+        error: 'Invalid test case format'
       });
     }
 
     // Update the problem
+    console.log('Updating problem with data:', {
+      title: title?.trim(),
+      description: description?.trim(),
+      difficulty,
+      total_points: Number(total_points)
+    });
+    
     const problem = await Problem.updateProblem(problemId, {
       title: title?.trim(),
       description: description?.trim(),
       difficulty,
-      total_points
+      total_points: Number(total_points)
     });
 
-    // Get existing test cases
-    const existingTestcases = await Testcase.getTestCasesByProblemId(problemId);
-    const existingIds = new Set(existingTestcases.map(tc => tc.id));
+    // Update test cases if provided
+    if (testcases && testcases.length > 0) {
+      console.log(`Updating ${testcases.length} testcases for problem ${problemId}`);
+      
+      // Delete existing test cases
+      await Testcase.deleteTestcasesByProblemId(problemId);
+      console.log('Deleted existing testcases');
 
-    // Separate test cases into updates and creates
-    const updates = [];
-    const creates = [];
-    testcases.forEach(tc => {
-      if (tc.id && existingIds.has(tc.id)) {
-        updates.push({
-          id: tc.id,
+      // Create new test cases
+      const createdTestcases = await Promise.all(testcases.map(test => 
+        Testcase.createTestcase({
           problem_id: problemId,
-          input: tc.input.trim(),
-          expected_output: tc.expected_output.trim(),
-          difficulty: tc.difficulty,
-          points: tc.points
-        });
-      } else {
-        creates.push({
-          problem_id: problemId,
-          input: tc.input.trim(),
-          expected_output: tc.expected_output.trim(),
-          difficulty: tc.difficulty,
-          points: tc.points
-        });
-      }
-    });
-
-    // Delete test cases that are no longer needed
-    const keepIds = new Set(updates.map(tc => tc.id));
-    const deletions = existingTestcases
-      .filter(tc => !keepIds.has(tc.id))
-      .map(tc => Testcase.deleteTestcase(tc.id));
-
-    // Update existing test cases
-    const updatePromises = updates.map(tc => Testcase.updateTestcase(tc.id, tc));
-
-    // Create new test cases
-    const createPromises = creates.map(tc => Testcase.createTestcase(tc));
-
-    // Execute all operations
-    await Promise.all([...deletions, ...updatePromises, ...createPromises]);
-
-    // Fetch updated problem with test cases
-    const updatedProblem = await Problem.getProblemById(problemId);
+          input: test.input,
+          expected_output: test.expected_output,
+          difficulty: test.difficulty || 'easy',
+          points: Number(test.points) || 10
+        })
+      ));
+      
+      console.log('Created new testcases:', createdTestcases.length);
+    }
 
     res.json({
       success: true,
-      data: updatedProblem,
+      data: problem,
       message: 'Problem updated successfully'
     });
   } catch (error) {
