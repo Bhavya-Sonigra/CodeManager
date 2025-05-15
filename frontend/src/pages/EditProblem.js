@@ -3,17 +3,47 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { problemService } from '../services/problemService';
 import './EditProblem.css';
 
+const validatePoints = (value) => {
+  const points = Number(value);
+  if (isNaN(points)) return 'Points must be a number';
+  if (points < 0) return 'Points cannot be negative';
+  if (points > 1000) return 'Points cannot exceed 1000';
+  if (!Number.isInteger(points)) return 'Points must be whole numbers';
+  return null;
+};
+
+const validateInput = (value, field) => {
+  if (!value || !value.trim()) return `${field} cannot be empty`;
+  if (value.length > 1000) return `${field} is too long (max 1000 characters)`;
+  return null;
+};
+
 const EditProblem = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [fieldErrors, setFieldErrors] = useState({});
+  const [isDirty, setIsDirty] = useState(false);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
     difficulty: 'easy',
     testCases: []
   });
+
+  // Add beforeunload event listener for unsaved changes
+  useEffect(() => {
+    const handleBeforeUnload = (e) => {
+      if (isDirty) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [isDirty]);
 
   useEffect(() => {
     const fetchProblem = async () => {
@@ -82,18 +112,25 @@ const EditProblem = () => {
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
+    setIsDirty(true);
     
-    // Special handling for total_points to update test case points
-    if (name === 'total_points' && formData.testCases.length > 0) {
-      const newTotalPoints = Number(value);
-      if (!isNaN(newTotalPoints) && newTotalPoints >= 0) {
-        // Calculate points per test case
-        const pointsPerTest = Math.round(newTotalPoints / formData.testCases.length);
+    // Validate points
+    if (name === 'total_points') {
+      const error = validatePoints(value);
+      setFieldErrors(prev => ({
+        ...prev,
+        total_points: error
+      }));
+      
+      if (!error) {
+        const newTotalPoints = Number(value);
+        const pointsPerTest = Math.floor(newTotalPoints / formData.testCases.length);
+        const remainder = newTotalPoints % formData.testCases.length;
         
-        // Update all test cases with new points
-        const updatedTestCases = formData.testCases.map(tc => ({
+        // Update all test cases with new points, distributing remainder
+        const updatedTestCases = formData.testCases.map((tc, index) => ({
           ...tc,
-          points: pointsPerTest
+          points: pointsPerTest + (index < remainder ? 1 : 0)
         }));
         
         setFormData(prev => ({
@@ -104,6 +141,24 @@ const EditProblem = () => {
         return;
       }
     }
+
+    // Validate title
+    if (name === 'title') {
+      const error = validateInput(value, 'Title');
+      setFieldErrors(prev => ({
+        ...prev,
+        title: error
+      }));
+    }
+
+    // Validate description
+    if (name === 'description') {
+      const error = validateInput(value, 'Description');
+      setFieldErrors(prev => ({
+        ...prev,
+        description: error
+      }));
+    }
     
     setFormData(prev => ({
       ...prev,
@@ -112,6 +167,26 @@ const EditProblem = () => {
   };
 
   const handleTestCaseChange = (index, field, value) => {
+    setIsDirty(true);
+    
+    // Validate test case points
+    if (field === 'points') {
+      const error = validatePoints(value);
+      setFieldErrors(prev => ({
+        ...prev,
+        [`testcase_${index}_points`]: error
+      }));
+    }
+
+    // Validate test case input/output
+    if (field === 'input' || field === 'expectedOutput') {
+      const error = validateInput(value, field === 'input' ? 'Input' : 'Expected Output');
+      setFieldErrors(prev => ({
+        ...prev,
+        [`testcase_${index}_${field}`]: error
+      }));
+    }
+
     setFormData(prev => {
       const newTestCases = [...prev.testCases];
       newTestCases[index] = {
@@ -138,10 +213,51 @@ const EditProblem = () => {
   };
 
   const removeTestCase = (index) => {
-    setFormData(prev => ({
-      ...prev,
-      testCases: prev.testCases.filter((_, i) => i !== index)
-    }));
+    // Prevent deletion if it's the last test case
+    if (formData.testCases.length <= 1) {
+      alert('Cannot delete the last test case. At least one test case is required.');
+      return;
+    }
+
+    setFormData(prev => {
+      const newTestCases = prev.testCases.filter((_, i) => i !== index);
+      // Recalculate points for remaining test cases
+      const pointsPerTest = Math.round(Number(prev.total_points) / newTestCases.length);
+      
+      return {
+        ...prev,
+        testCases: newTestCases.map(tc => ({
+          ...tc,
+          points: pointsPerTest
+        }))
+      };
+    });
+  };
+
+  const validateForm = () => {
+    const errors = {};
+
+    // Validate form fields
+    errors.title = validateInput(formData.title, 'Title');
+    errors.description = validateInput(formData.description, 'Description');
+    errors.total_points = validatePoints(formData.total_points);
+
+    // Validate test cases
+    formData.testCases.forEach((tc, index) => {
+      errors[`testcase_${index}_input`] = validateInput(tc.input, 'Input');
+      errors[`testcase_${index}_expectedOutput`] = validateInput(tc.expectedOutput, 'Expected Output');
+      errors[`testcase_${index}_points`] = validatePoints(tc.points);
+    });
+
+    // Validate total points match
+    const totalPoints = Number(formData.total_points);
+    const testcasePointsSum = formData.testCases.reduce((sum, tc) => sum + Number(tc.points), 0);
+    if (totalPoints !== testcasePointsSum) {
+      errors.points_mismatch = `Total points (${totalPoints}) must equal sum of test case points (${testcasePointsSum})`;
+    }
+
+    setFieldErrors(errors);
+    return !Object.values(errors).some(error => error !== null);
   };
 
   const handleSubmit = async (e) => {
@@ -149,23 +265,14 @@ const EditProblem = () => {
     setError(null);
 
     try {
+      // Validate form before submission
+      if (!validateForm()) {
+        setError('Please fix the validation errors before submitting');
+        return;
+      }
+
       console.log('Form data before submission:', formData);
       
-      // Validate test cases
-      if (!formData.testCases || formData.testCases.length === 0) {
-        setError('At least one test case is required');
-        return;
-      }
-
-      // Check for empty inputs or outputs
-      const invalidTestCase = formData.testCases.find(
-        tc => !tc.input || !tc.input.trim() || !tc.expectedOutput || !tc.expectedOutput.trim()
-      );
-      if (invalidTestCase) {
-        setError('All test cases must have input and expected output');
-        return;
-      }
-
       // Map testCases to the format expected by the backend
       // Preserve the original ID for existing test cases
       const updatedFormData = {
@@ -209,6 +316,13 @@ const EditProblem = () => {
   return (
     <div className="edit-problem-container">
       <h1>Edit Problem</h1>
+      {Object.entries(fieldErrors).map(([field, error]) => 
+        error && (
+          <div key={field} className="field-error">
+            {error}
+          </div>
+        )
+      )}
       <form onSubmit={handleSubmit} className="edit-problem-form">
         <div className="form-group">
           <label htmlFor="title">Title</label>

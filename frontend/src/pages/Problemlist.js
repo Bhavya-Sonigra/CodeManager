@@ -6,15 +6,15 @@ import './ProblemList.css';
 const ProblemList = () => {
   const navigate = useNavigate();
   const [problems, setProblems] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [error, setError] = useState(null);
+
   useEffect(() => {
     if (!Array.isArray(problems)) {
       setProblems([]);
     }
   }, [problems]);
-  const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState('all'); // all, easy, medium, hard
-  const [sortBy, setSortBy] = useState('newest'); // newest, points
-  const [error, setError] = useState(null);
 
   useEffect(() => {
     const fetchProblems = async () => {
@@ -40,13 +40,15 @@ const ProblemList = () => {
     fetchProblems();
   }, []);
 
-  const handleFilterChange = (e) => {
-    setFilter(e.target.value);
-  };
+  // Listen for search events from the Layout component
+  useEffect(() => {
+    const handleSearch = (event) => {
+      setSearchQuery(event.detail.query);
+    };
 
-  const handleSortChange = (e) => {
-    setSortBy(e.target.value);
-  };
+    window.addEventListener('problemSearch', handleSearch);
+    return () => window.removeEventListener('problemSearch', handleSearch);
+  }, []);
 
   const handleDelete = async (id) => {
     try {
@@ -62,72 +64,68 @@ const ProblemList = () => {
     }
   };
 
-  const filteredAndSortedProblems = () => {
+  const filteredProblems = () => {
     if (!Array.isArray(problems)) {
       return [];
     }
 
     let result = [...problems];
 
-    // Apply filter
-    if (filter !== 'all') {
-      result = result.filter(problem => problem.difficulty === filter);
+    // Apply search filter
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      result = result.filter(problem => 
+        problem.title.toLowerCase().includes(query) ||
+        problem.description.toLowerCase().includes(query)
+      );
     }
 
-    // Apply sorting
-    result.sort((a, b) => {
-      if (sortBy === 'points') {
-        return (b.total_points || 0) - (a.total_points || 0);
-      }
-      // Default sort by newest
-      return new Date(b.created_at || 0) - new Date(a.created_at || 0);
-    });
+    // Sort by newest first (default sorting)
+    result.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
 
     return result;
+  };
+
+  const getDifficultyIcon = (difficulty) => {
+    switch (difficulty) {
+      case 'easy':
+        return '🟢';
+      case 'medium':
+        return '🟡';
+      case 'hard':
+        return '🔴';
+      default:
+        return '⚪';
+    }
   };
 
   if (loading) return <div className="loading">Loading problems...</div>;
   if (error) return <div className="error">{error}</div>;
 
+  const problemsToDisplay = filteredProblems();
+
   return (
     <div className="problem-list-container">
-      <div className="problem-list-header">
-        <h1>Coding Problems</h1>
-        <Link to="/add" className="add-problem-btn">
-          Add New Problem
-        </Link>
-      </div>
-
-      <div className="filters">
-        <select value={filter} onChange={handleFilterChange} className="filter-select">
-          <option value="all">All Difficulties</option>
-          <option value="easy">Easy</option>
-          <option value="medium">Medium</option>
-          <option value="hard">Hard</option>
-        </select>
-
-        <select value={sortBy} onChange={handleSortChange} className="sort-select">
-          <option value="newest">Newest First</option>
-          <option value="points">Points (High to Low)</option>
-        </select>
-      </div>
-
       <div className="problems-grid">
-        {filteredAndSortedProblems().map(problem => (
+        {problemsToDisplay.map(problem => (
           <div key={problem.id} className="problem-card">
             <div className="problem-content">
-              <h3>{problem.title}</h3>
+              <h3>
+                {getDifficultyIcon(problem.difficulty)} {problem.title}
+              </h3>
               <div className="problem-info">
                 <span className={`difficulty ${problem.difficulty}`}>
                   {problem.difficulty}
                 </span>
-                <span className="points">{problem.total_points} points</span>
+                <span className="points">
+                  {problem.total_points} points
+                </span>
               </div>
               <p className="description">{problem.description}</p>
             </div>
-            <div className="card-actions" onClick={(e) => e.stopPropagation()}>
+            <div className="card-actions">
               <div className="action-links">
-                <button 
+                <button
                   type="button"
                   className="edit-link"
                   onClick={(e) => {
@@ -150,8 +148,8 @@ const ProblemList = () => {
                   Delete
                 </button>
               </div>
-              <Link 
-                to={`/solve/${problem.id}`} 
+              <Link
+                to={`/solve/${problem.id}`}
                 className="solve-btn"
                 onClick={(e) => e.stopPropagation()}
               >
@@ -162,9 +160,11 @@ const ProblemList = () => {
         ))}
       </div>
 
-      {filteredAndSortedProblems().length === 0 && (
+      {problemsToDisplay.length === 0 && (
         <div className="no-problems">
-          No problems found. {filter !== 'all' && 'Try changing the filter.'}
+          {searchQuery
+            ? 'No problems found matching your search.'
+            : 'No problems available. Add your first problem!'}
         </div>
       )}
     </div>
