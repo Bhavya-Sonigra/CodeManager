@@ -114,7 +114,11 @@ const ProblemList = () => {
 
       <div className="problems-grid">
         {filteredAndSortedProblems().map(problem => (
-          <div key={problem.id} className="problem-card">
+          <div 
+            key={problem.id} 
+            className="problem-card"
+            onClick={() => navigate(`/solve/${problem.id}`)}
+          >
             <div className="problem-content">
               <h3>{problem.title}</h3>
               <div className="problem-info">
@@ -150,13 +154,15 @@ const ProblemList = () => {
                   Delete
                 </button>
               </div>
-              <Link 
-                to={`/solve/${problem.id}`} 
+              <button 
                 className="solve-btn"
-                onClick={(e) => e.stopPropagation()}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  navigate(`/solve/${problem.id}`);
+                }}
               >
                 Solve Problem
-              </Link>
+              </button>
             </div>
           </div>
         ))}

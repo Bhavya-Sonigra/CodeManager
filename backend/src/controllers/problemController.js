@@ -116,7 +116,7 @@ exports.createProblem = async (req, res) => {
 
 exports.updateProblem = async (req, res) => {
   try {
-    const { title, description, difficulty, testCases } = req.body;
+    const { title, description, difficulty, total_points, testcases } = req.body;
     const problemId = req.params.id;
 
     // Validate problem exists
@@ -128,14 +128,35 @@ exports.updateProblem = async (req, res) => {
       });
     }
 
-    // Additional validation beyond middleware
-    if (testCases && (!Array.isArray(testCases) || testCases.some(test => {
-      return typeof test.input === 'undefined' || 
-             typeof test.expectedOutput === 'undefined';
-    }))) {
+    // Validate test cases
+    if (!Array.isArray(testcases) || testcases.length === 0) {
       return res.status(400).json({
         success: false,
-        error: 'Invalid test case format'
+        error: 'At least one test case is required'
+      });
+    }
+
+    // Validate test case format
+    const invalidTestcase = testcases.some(test => {
+      return !test.input || 
+             !test.expected_output || 
+             typeof test.points !== 'number' || 
+             !test.difficulty;
+    });
+
+    if (invalidTestcase) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid test case format. Each test case must have input, expected_output, points, and difficulty'
+      });
+    }
+
+    // Validate total points
+    const testcasePointsTotal = testcases.reduce((sum, tc) => sum + tc.points, 0);
+    if (Math.abs(testcasePointsTotal - total_points) > 0.01) {
+      return res.status(400).json({
+        success: false,
+        error: `Total points from testcases (${testcasePointsTotal}) must equal problem total points (${total_points})`
       });
     }
 
@@ -143,27 +164,59 @@ exports.updateProblem = async (req, res) => {
     const problem = await Problem.updateProblem(problemId, {
       title: title?.trim(),
       description: description?.trim(),
-      difficulty
+      difficulty,
+      total_points
     });
 
-    // Update test cases if provided
-    if (testCases && testCases.length > 0) {
-      // Delete existing test cases
-      await Testcase.deleteTestCasesByProblemId(problemId);
+    // Get existing test cases
+    const existingTestcases = await Testcase.getTestCasesByProblemId(problemId);
+    const existingIds = new Set(existingTestcases.map(tc => tc.id));
 
-      // Create new test cases
-      await Promise.all(testCases.map(test => 
-        Testcase.createTestCase({
-          problemId,
-          input: test.input,
-          expectedOutput: test.expectedOutput
-        })
-      ));
-    }
+    // Separate test cases into updates and creates
+    const updates = [];
+    const creates = [];
+    testcases.forEach(tc => {
+      if (tc.id && existingIds.has(tc.id)) {
+        updates.push({
+          id: tc.id,
+          problem_id: problemId,
+          input: tc.input.trim(),
+          expected_output: tc.expected_output.trim(),
+          difficulty: tc.difficulty,
+          points: tc.points
+        });
+      } else {
+        creates.push({
+          problem_id: problemId,
+          input: tc.input.trim(),
+          expected_output: tc.expected_output.trim(),
+          difficulty: tc.difficulty,
+          points: tc.points
+        });
+      }
+    });
+
+    // Delete test cases that are no longer needed
+    const keepIds = new Set(updates.map(tc => tc.id));
+    const deletions = existingTestcases
+      .filter(tc => !keepIds.has(tc.id))
+      .map(tc => Testcase.deleteTestcase(tc.id));
+
+    // Update existing test cases
+    const updatePromises = updates.map(tc => Testcase.updateTestcase(tc.id, tc));
+
+    // Create new test cases
+    const createPromises = creates.map(tc => Testcase.createTestcase(tc));
+
+    // Execute all operations
+    await Promise.all([...deletions, ...updatePromises, ...createPromises]);
+
+    // Fetch updated problem with test cases
+    const updatedProblem = await Problem.getProblemById(problemId);
 
     res.json({
       success: true,
-      data: problem,
+      data: updatedProblem,
       message: 'Problem updated successfully'
     });
   } catch (error) {

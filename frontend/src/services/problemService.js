@@ -40,14 +40,21 @@ export const problemService = {
   async getProblemById(id) {
     try {
       const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.PROBLEMS}/${id}`);
-      const data = await handleResponse(response);
-      if (!data) {
-        throw new Error('Problem not found');
+      const result = await handleResponse(response);
+      
+      if (result.error) {
+        return result;
       }
-      return { data, error: null };
+
+      // Ensure testcases is an array
+      if (result.data && !Array.isArray(result.data.testcases)) {
+        result.data.testcases = [];
+      }
+
+      return result;
     } catch (error) {
-      console.error('Error fetching problem:', error.message);
-      return { data: null, error };
+      console.error('Error fetching problem:', error);
+      return { error };
     }
   },
 
@@ -72,6 +79,9 @@ export const problemService = {
   // Update an existing problem
   async updateProblem(id, problemData) {
     try {
+      // Ensure testcases is an array
+      const testcases = Array.isArray(problemData.testcases) ? problemData.testcases : [];
+      
       const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.PROBLEMS}/${id}`, {
         method: 'PUT',
         headers: {
@@ -80,12 +90,14 @@ export const problemService = {
         body: JSON.stringify({
           ...problemData,
           total_points: Number(problemData.total_points),
-          testcases: problemData.testcases.map(tc => ({
+          testcases: testcases.map(tc => ({
             ...tc,
-            points: Number(tc.points)
+            points: Number(tc.points || 0),
+            difficulty: tc.difficulty || 'easy'
           }))
         }),
       });
+      
       const data = await handleResponse(response);
       return { data, error: null };
     } catch (error) {

@@ -21,13 +21,20 @@ class Problem {
       .from('problems')
       .select(`
         *,
-        testcases (*)
+        testcases (id, input, expected_output, difficulty, points)
       `)
-      .eq('id', id);
+      .eq('id', id)
+      .maybeSingle();
 
     if (error) throw error;
-    if (!data || data.length === 0) return null;
-    return data[0];
+    if (!data) return null;
+
+    // Sort testcases by ID to maintain order
+    if (data.testcases) {
+      data.testcases.sort((a, b) => a.id - b.id);
+    }
+
+    return data;
   }
 
   // Create a new problem
